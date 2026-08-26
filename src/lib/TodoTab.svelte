@@ -29,6 +29,7 @@
   // 任务弹窗
   let openKey = $state(null) // `${title}|${created}`
   let confirmDelete = $state(false)
+  let confirmCancel = $state(false)
   let dueInput = $state('')
 
   // 过夜归档守卫
@@ -124,6 +125,7 @@
   function openModal(t) {
     openKey = keyOf(t)
     confirmDelete = false
+    confirmCancel = false
     dueInput = t.due || ''
   }
 
@@ -396,8 +398,8 @@
               </div>
             </div>
 
-            <!-- 冻结/取消 -->
-            <div class="flex gap-1.5 flex-wrap">
+            <!-- 冻结/取消(取消二次确认) -->
+            <div class="flex gap-1.5 flex-wrap items-center">
               {#if t.status === 'hold'}
                 <button class="tab-btn tab-btn--sm" disabled={busy} onclick={() => act(() => store.setTaskHold(t, false), '已解冻')}>
                   <Sun size={13} /> 解冻
@@ -407,9 +409,16 @@
                   <Snowflake size={13} /> 冻结
                 </button>
               {/if}
-              <button class="tab-btn tab-btn--sm" disabled={busy} onclick={() => act(() => store.cancelTask(t), '已取消(留档 [-])')}>
-                <Ban size={13} /> 取消
-              </button>
+              {#if confirmCancel}
+                <span class="text-[11.5px] text-warn">标 [-] 留档不再做</span>
+                <button class="tab-btn tab-btn--sm" style="background:var(--color-warn);color:#fff" disabled={busy}
+                  onclick={() => act(() => store.cancelTask(t), '已取消(留档 [-])')}>确认取消</button>
+                <button class="tab-btn tab-btn--sm" onclick={() => (confirmCancel = false)}>不了</button>
+              {:else}
+                <button class="tab-btn tab-btn--sm" disabled={busy} onclick={() => (confirmCancel = true)}>
+                  <Ban size={13} /> 取消
+                </button>
+              {/if}
             </div>
 
             <!-- @due 截止日 -->
