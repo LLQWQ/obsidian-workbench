@@ -116,20 +116,9 @@
     }, '已删除')
   }
 
-  // ---- 取消摄取:排队 chip 点一下→确认态(3s 复位),再点回退;与删除角标同一确认语言 ----
-  let confirmUningest = $state(null)
-  let uningestTimer = null
-  function armUningest(c) {
-    confirmUningest = c.path
-    clearTimeout(uningestTimer)
-    uningestTimer = setTimeout(() => (confirmUningest = null), 3000)
-  }
+  // ---- 取消摄取:零确认轻操作,点排队 chip 直接回退(误取消了点 ✨ 重新标,幂等) ----
   async function doUningest(c) {
-    clearTimeout(uningestTimer)
-    await act(async () => {
-      await store.updateCard(c.path, { ingest: '' })
-      confirmUningest = null
-    }, '已取消摄取排队')
+    await act(() => store.updateCard(c.path, { ingest: '' }), '已取消摄取排队')
   }
 
   function jumpTo(c) {
@@ -212,16 +201,15 @@
   {/if}
 {/snippet}
 
-<!-- 删除角标:卡片右上角,点一下变确认态(3s 复位),再点真删;stopPropagation 防开弹窗 -->
+<!-- 删除角标:纯图标 morph——常态白底红桶;点一下变红实心脉冲(3s 复位),再点真删 -->
 {#snippet cornerDelete(c)}
-  <span class="absolute top-2 right-2 z-10 flex items-center gap-1" onclick={(e) => e.stopPropagation()}>
+  <span class="absolute top-2 right-2 z-10" onclick={(e) => e.stopPropagation()}>
     {#if confirmDelete === c.path}
-      <button class="text-[11px] px-2 py-1 rounded-full border border-ink-black bg-rise text-pure-white font-bold" disabled={saving}
-        onclick={() => doDelete(c)}>确认删?</button>
-      <button class="w-6 h-6 grid place-items-center rounded-full border border-ink-black bg-pure-white" onclick={() => (confirmDelete = null)}><X size={12} /></button>
+      <button class="wb-corner-danger w-7 h-7 grid place-items-center rounded-full border border-ink-black bg-rise text-pure-white" title="再点一次确认删除" disabled={saving}
+        onclick={() => doDelete(c)}><Trash2 size={13} /></button>
     {:else}
-      <button class="w-6 h-6 grid place-items-center rounded-full border border-ink-black bg-pure-white text-rise" title="删除"
-        onclick={() => armDelete(c)}><Trash2 size={12} /></button>
+      <button class="w-7 h-7 grid place-items-center rounded-full border border-ink-black bg-pure-white text-rise" title="删除"
+        onclick={() => armDelete(c)}><Trash2 size={13} /></button>
     {/if}
   </span>
 {/snippet}
@@ -236,19 +224,14 @@
     onclick={() => store.openPage(c.path)}><ExternalLink size={13} /></button>
 {/snippet}
 
-<!-- 摄取闭环(仅文章卡):摄取 → 排队中(loader 动效,点→确认态再点取消) → 已摄取 -->
+<!-- 摄取闭环(仅文章卡):✨摄取 → 排队中(loader 动效,点=一键取消,零确认) → ✓已摄取 -->
 {#snippet ingestCtl(c)}
   {#if c.kind === 'article'}
     {#if c.ingest === 'pending'}
-      {#if confirmUningest === c.path}
-        <button class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-rise text-pure-white font-bold" disabled={saving}
-          onclick={() => doUningest(c)}>取消排队?</button>
-      {:else}
-        <button class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-bubblegum flex items-center gap-1" title="摄取排队中,点击可取消" disabled={saving}
-          onclick={() => armUningest(c)}>
-          <LoaderCircle size={11} class="animate-spin" /> 摄取排队中
-        </button>
-      {/if}
+      <button class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-bubblegum flex items-center gap-1" title="摄取排队中,点击取消排队" disabled={saving}
+        onclick={() => doUningest(c)}>
+        <LoaderCircle size={11} class="animate-spin" /> 排队中
+      </button>
     {:else if c.ingest === 'ingested'}
       <span class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-mint-splash flex items-center gap-1"><Check size={11} /> 已摄取</span>
     {:else}
@@ -367,15 +350,10 @@
               <Sparkles size={13} /> 摄取
             </button>
           {:else if c.ingest === 'pending'}
-            {#if confirmUningest === c.path}
-              <button class="tab-btn tab-btn--sm" style="background:var(--color-rise);color:#fff" disabled={saving}
-                onclick={() => doUningest(c)}>取消排队?</button>
-            {:else}
-              <button class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-bubblegum flex items-center gap-1 self-center" title="摄取排队中,点击可取消" disabled={saving}
-                onclick={() => armUningest(c)}>
-                <LoaderCircle size={11} class="animate-spin" /> 摄取排队中
-              </button>
-            {/if}
+            <button class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-bubblegum flex items-center gap-1 self-center" title="摄取排队中,点击取消排队" disabled={saving}
+              onclick={() => doUningest(c)}>
+              <LoaderCircle size={11} class="animate-spin" /> 排队中
+            </button>
           {:else}
             <span class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-mint-splash flex items-center gap-1 self-center"><Check size={11} /> 已摄取</span>
           {/if}

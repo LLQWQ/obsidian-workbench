@@ -220,3 +220,12 @@
   border-radius: var(--radius-card);
 }
 .wb-modal::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+/* 删除角标确认态:红实心 + 脉冲扩散环(危险待确认,3s 未点由 JS 复位) */
+.wb-corner-danger {
+  animation: wb-danger-pulse 1s ease-in-out infinite;
+}
+@keyframes wb-danger-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(214, 69, 95, 0.45); }
+  50% { box-shadow: 0 0 0 7px rgba(214, 69, 95, 0); }
+}
