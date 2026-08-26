@@ -4,6 +4,7 @@
   import HealthTab from './lib/HealthTab.svelte'
   import ReadingTab from './lib/ReadingTab.svelte'
   import Crane from './lib/Crane.svelte'
+  import DoodleBackground from './lib/DoodleBackground.svelte'
   import { ListChecks, Newspaper, Dumbbell, Library } from '@lucide/svelte'
 
   let { store } = $props()
@@ -21,8 +22,9 @@
   const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 </script>
 
-<div class="workbench-root min-h-full bg-cream-paper text-ink-black">
-  <div class="wb-content max-w-[960px] mx-auto px-4 md:px-6">
+<div class="workbench-root relative min-h-full bg-cream-paper text-ink-black">
+  <DoodleBackground />
+  <div class="wb-content relative z-[1] max-w-[960px] mx-auto px-4 md:px-6">
     <!-- 顶栏 -->
     <nav class="flex items-center justify-between pt-4">
       <div class="flex items-center gap-2.5">
