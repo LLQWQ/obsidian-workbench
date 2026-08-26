@@ -366,11 +366,18 @@ export function replaceSectionItem(text, heading, idx, fn) {
 export function parseCard(path, text) {
   const { fm, body } = parseFm(text)
   const name = path.split('/').pop().replace(/\.md$/, '')
+  // 阅读态 ⊥ 摄取态解耦(v0.3.0):status=纯阅读态,ingest=摄取态
+  // 兼容旧格式:status 里的 pending-ingest/ingested 映射进 ingest,status 落回 read
+  let status = fm.status || ''
+  let ingest = fm.ingest || ''
+  if (status === 'pending-ingest') { ingest = 'pending'; status = 'read' }
+  else if (status === 'ingested') { ingest = 'ingested'; status = 'read' }
   return {
     path,
     name,
     kind: fm.type === 'book' ? 'book' : 'article',
-    status: fm.status || '',
+    status,
+    ingest, // '' | pending | ingested
     title: fm.title || name,
     author: fm.author || '',
     progress: parseInt(fm.progress) || 0,
@@ -391,6 +398,7 @@ export function parseCard(path, text) {
 const bookTemplate = (title, today) => `---
 type: book
 status: 想读
+ingest: ""
 title: "${title.replace(/"/g, "'")}"
 author: ""
 progress: 0
@@ -412,6 +420,7 @@ finished: ""
 const articleCardTemplate = (title, url, rawPath, captured, today) => `---
 type: article
 status: to-read
+ingest: ""
 title: "${title.replace(/"/g, "'")}"
 source_url: "${url}"
 source_file: "[[${rawPath.replace(/\.md$/, '')}]]"
@@ -445,6 +454,19 @@ export function createVaultStore(adapter, app = null) {
 
   // 阅读域:扫描 读书/ 全部卡;raw/articles 有全文无卡的自动补薄卡
   async function scanCards() {
+    // 旧格式懒迁移:status 里的摄取值写回 ingest 字段(自愈手改 md 的旧写法)
+    const readCardMigrated = async (f) => {
+      const text = await read(f)
+      const { fm } = parseFm(text)
+      const legacy =
+        fm.status === 'pending-ingest' ? { status: 'read', ingest: 'pending' }
+        : fm.status === 'ingested' ? { status: 'read', ingest: 'ingested' }
+        : null
+      if (!legacy) return parseCard(f, text)
+      const finalText = patchCardFm(text, legacy)
+      await write(f, finalText)
+      return parseCard(f, finalText)
+    }
     const out = { books: [], articles: [] }
     if (!(await exists(BOOKS_DIR))) return out
     if (await exists(RAW_ARTICLES_DIR)) {
@@ -467,12 +489,12 @@ export function createVaultStore(adapter, app = null) {
     }
     const listing = await adapter.list(BOOKS_DIR)
     for (const f of listing.files || []) {
-      if (f.endsWith('.md')) out.books.push(parseCard(f, await read(f)))
+      if (f.endsWith('.md')) out.books.push(await readCardMigrated(f))
     }
     if (await exists(ARTICLE_CARDS_DIR)) {
       const cl = await adapter.list(ARTICLE_CARDS_DIR)
       for (const f of cl.files || []) {
-        if (f.endsWith('.md')) out.articles.push(parseCard(f, await read(f)))
+        if (f.endsWith('.md')) out.articles.push(await readCardMigrated(f))
       }
     }
     out.books.sort((a, b) => (b.added || '').localeCompare(a.added || ''))

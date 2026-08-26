@@ -47,11 +47,10 @@
       在读: 'bg-mint-splash',
       已读: 'bg-fog', read: 'bg-fog',
       弃读: 'bg-peach-pop', archived: 'bg-peach-pop',
-      'pending-ingest': 'bg-bubblegum', ingested: 'bg-mint-splash',
     }[status] || 'bg-fog'
   }
   function statusLabel(c) {
-    return { 'to-read': '待读', read: '已读', archived: '已归档', 'pending-ingest': '摄取排队中', ingested: '已摄取' }[c.status] || c.status
+    return { 'to-read': '待读', read: '已读', archived: '已归档' }[c.status] || c.status
   }
 
   onMount(() => {
@@ -117,6 +116,22 @@
     }, '已删除')
   }
 
+  // ---- 取消摄取:排队 chip 点一下→确认态(3s 复位),再点回退;与删除角标同一确认语言 ----
+  let confirmUningest = $state(null)
+  let uningestTimer = null
+  function armUningest(c) {
+    confirmUningest = c.path
+    clearTimeout(uningestTimer)
+    uningestTimer = setTimeout(() => (confirmUningest = null), 3000)
+  }
+  async function doUningest(c) {
+    clearTimeout(uningestTimer)
+    await act(async () => {
+      await store.updateCard(c.path, { ingest: '' })
+      confirmUningest = null
+    }, '已取消摄取排队')
+  }
+
   function jumpTo(c) {
     sub = c.status === '在读' ? 'reading' : (c.status === '想读' || c.status === 'to-read') ? 'queue' : 'archive'
     openPath = null
@@ -154,7 +169,7 @@
   let archiveItems = $derived.by(() => {
     let items = [
       ...books.filter((b) => b.status === '已读' || b.status === '弃读'),
-      ...articles.filter((a) => ['read', 'pending-ingest', 'ingested', 'archived'].includes(a.status)),
+      ...articles.filter((a) => ['read', 'archived'].includes(a.status)),
     ]
     if (filter === 'book') items = items.filter((c) => c.kind === 'book')
     else if (filter === 'article') items = items.filter((c) => c.kind === 'article')
@@ -174,7 +189,7 @@
     return {
       y,
       nb: books.filter((b) => b.status === '已读' && (b.finished || '').startsWith(y)).length,
-      na: articles.filter((a) => ['read', 'pending-ingest', 'ingested'].includes(a.status) && (a.finished || '').startsWith(y)).length,
+      na: articles.filter((a) => a.status === 'read' && (a.finished || '').startsWith(y)).length,
     }
   })
   let thoughtsFlow = $derived.by(() => {
@@ -221,17 +236,24 @@
     onclick={() => store.openPage(c.path)}><ExternalLink size={13} /></button>
 {/snippet}
 
-<!-- 摄取闭环:摄取 → 排队中(可点取消回退已读) → 已摄取;仅文章卡 -->
+<!-- 摄取闭环(仅文章卡):摄取 → 排队中(loader 动效,点→确认态再点取消) → 已摄取 -->
 {#snippet ingestCtl(c)}
   {#if c.kind === 'article'}
-    {#if c.status === 'pending-ingest'}
-      <button class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-bubblegum flex items-center gap-1" title="取消摄取(回退已读)" disabled={saving}
-        onclick={() => act(() => store.updateCard(c.path, { status: 'read' }), '已取消摄取,回退已读')}>摄取排队中 <X size={11} /></button>
-    {:else if c.status === 'ingested'}
-      <span class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-mint-splash">已摄取</span>
+    {#if c.ingest === 'pending'}
+      {#if confirmUningest === c.path}
+        <button class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-rise text-pure-white font-bold" disabled={saving}
+          onclick={() => doUningest(c)}>取消排队?</button>
+      {:else}
+        <button class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-bubblegum flex items-center gap-1" title="摄取排队中,点击可取消" disabled={saving}
+          onclick={() => armUningest(c)}>
+          <LoaderCircle size={11} class="animate-spin" /> 摄取排队中
+        </button>
+      {/if}
+    {:else if c.ingest === 'ingested'}
+      <span class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-mint-splash flex items-center gap-1"><Check size={11} /> 已摄取</span>
     {:else}
       <button class="w-7 h-7 grid place-items-center rounded-full border border-ink-black bg-pure-white hover:bg-bubblegum" title="摄取" disabled={saving}
-        onclick={() => act(() => store.updateCard(c.path, { status: 'pending-ingest' }), '已标记摄取')}><Sparkles size={13} /></button>
+        onclick={() => act(() => store.updateCard(c.path, { ingest: 'pending' }), '已标记摄取')}><Sparkles size={13} /></button>
     {/if}
   {/if}
 {/snippet}
@@ -339,16 +361,23 @@
           <button class="tab-btn tab-btn--sm" onclick={() => window.open(c.sourceUrl, '_blank')}>原文 <ExternalLink size={13} /></button>
         {/if}
         {#if c.kind === 'article'}
-          {#if c.status !== 'ingested' && c.status !== 'pending-ingest'}
+          {#if !c.ingest}
             <button class="tab-btn tab-btn--sm" disabled={saving}
-              onclick={() => act(() => store.updateCard(c.path, { status: 'pending-ingest' }), '已标记摄取，跟鹤鹤/灵犀说「处理摄取队列」或等 cron 巡检')}>
+              onclick={() => act(() => store.updateCard(c.path, { ingest: 'pending' }), '已标记摄取，跟鹤鹤/灵犀说「处理摄取队列」或等 cron 巡检')}>
               <Sparkles size={13} /> 摄取
             </button>
-          {:else if c.status === 'pending-ingest'}
-            <button class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-bubblegum flex items-center gap-1" title="取消摄取(回退已读)" disabled={saving}
-              onclick={() => act(() => store.updateCard(c.path, { status: 'read' }), '已取消摄取,回退已读')}>摄取排队中 <X size={11} /></button>
+          {:else if c.ingest === 'pending'}
+            {#if confirmUningest === c.path}
+              <button class="tab-btn tab-btn--sm" style="background:var(--color-rise);color:#fff" disabled={saving}
+                onclick={() => doUningest(c)}>取消排队?</button>
+            {:else}
+              <button class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-bubblegum flex items-center gap-1 self-center" title="摄取排队中,点击可取消" disabled={saving}
+                onclick={() => armUningest(c)}>
+                <LoaderCircle size={11} class="animate-spin" /> 摄取排队中
+              </button>
+            {/if}
           {:else}
-            <span class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-mint-splash">已摄取</span>
+            <span class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-mint-splash flex items-center gap-1 self-center"><Check size={11} /> 已摄取</span>
           {/if}
         {/if}
         {#if ['read', 'archived', '已读', '弃读'].includes(c.status)}
