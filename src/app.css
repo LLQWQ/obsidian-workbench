@@ -199,3 +199,24 @@
 .workbench-root::-webkit-scrollbar, .workbench-root *::-webkit-scrollbar { width: 0; height: 0; display: none; }
 .workspace-leaf-content[data-type='workbench-view'] .view-content { scrollbar-width: none; }
 .workspace-leaf-content[data-type='workbench-view'] .view-content::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+/* 读书卡详情弹窗:遮罩 fixed 全窗,内容壳居中限高内部滚动 */
+.wb-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.wb-modal {
+  width: 100%;
+  max-width: 640px;
+  max-height: 85vh;
+  overflow-y: auto;
+  scrollbar-width: none;
+  border-radius: var(--radius-card);
+}
+.wb-modal::-webkit-scrollbar { width: 0; height: 0; display: none; }

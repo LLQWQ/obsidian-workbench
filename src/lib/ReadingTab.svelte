@@ -416,8 +416,6 @@
       <div class="card p-5"><div class="dash-frame p-4 text-[13px] text-slate text-center">队列空了。按 clipper 收文章，或上面加本书。</div></div>
     {/if}
 
-    {#if openCard && (openCard.status === '想读' || openCard.status === 'to-read')}{@render detail(openCard)}{/if}
-
   <!-- ============ 在读 ============ -->
   {:else if sub === 'reading'}
     {#if readingBooks.length}
@@ -449,8 +447,6 @@
     {:else}
       <div class="card p-5"><div class="dash-frame p-4 text-[13px] text-slate text-center">没有在读的书。从队列挑一本「开始读」。</div></div>
     {/if}
-
-    {#if openCard && openCard.status === '在读'}{@render detail(openCard)}{/if}
 
   <!-- ============ 档案 ============ -->
   {:else if sub === 'archive'}
@@ -502,8 +498,6 @@
       <div class="card p-5"><div class="dash-frame p-4 text-[13px] text-slate text-center">档案是空的。读完的书和文章会进这里，随时可搜可重读。</div></div>
     {/if}
 
-    {#if openCard && openCard.status !== '想读' && openCard.status !== 'to-read' && openCard.status !== '在读'}{@render detail(openCard)}{/if}
-
   <!-- ============ 感想流 ============ -->
   {:else if sub === 'thoughts'}
     <div class="card p-5 md:p-6">
@@ -532,4 +526,15 @@
       <div class="card p-5"><div class="dash-frame p-4 text-[13px] text-slate text-center">还没有感想。点开任意一张卡，在「感想」区记一条。</div></div>
     {/if}
   {/if}
+
+  <!-- ============ 卡详情弹窗(点遮罩/Esc 关闭) ============ -->
+  {#if openCard}
+    <div class="wb-modal-overlay" role="dialog" aria-modal="true" onclick={() => (openPath = null)}>
+      <div class="wb-modal" onclick={(e) => e.stopPropagation()}>
+        {@render detail(openCard)}
+      </div>
+    </div>
+  {/if}
 </div>
+
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape' && openCard) openPath = null }} />
