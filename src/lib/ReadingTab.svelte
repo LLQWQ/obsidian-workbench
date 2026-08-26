@@ -101,6 +101,22 @@
     relatedMap[c.path] = await store.getRelated(c)
   }
 
+  // ---- 卡片角标删除:点角标→确认态(3s 超时复位),再点真删;与弹窗删除共用 confirmDelete ----
+  let deleteTimer = null
+  function armDelete(c) {
+    confirmDelete = c.path
+    clearTimeout(deleteTimer)
+    deleteTimer = setTimeout(() => (confirmDelete = null), 3000)
+  }
+  async function doDelete(c) {
+    clearTimeout(deleteTimer)
+    await act(async () => {
+      await store.deleteCard(c)
+      confirmDelete = null
+      if (openPath === c.path) openPath = null
+    }, '已删除')
+  }
+
   function jumpTo(c) {
     sub = c.status === '在读' ? 'reading' : (c.status === '想读' || c.status === 'to-read') ? 'queue' : 'archive'
     openPath = null
@@ -178,6 +194,45 @@
     <div class="{h} border-b border-ink-black grid place-items-center" style="background:{ph(c.title)}">
       <span class="font-display text-[26px] leading-none text-ink-black">{c.title.slice(0, 1)}</span>
     </div>
+  {/if}
+{/snippet}
+
+<!-- 删除角标:卡片右上角,点一下变确认态(3s 复位),再点真删;stopPropagation 防开弹窗 -->
+{#snippet cornerDelete(c)}
+  <span class="absolute top-2 right-2 z-10 flex items-center gap-1" onclick={(e) => e.stopPropagation()}>
+    {#if confirmDelete === c.path}
+      <button class="text-[11px] px-2 py-1 rounded-full border border-ink-black bg-rise text-pure-white font-bold" disabled={saving}
+        onclick={() => doDelete(c)}>确认删?</button>
+      <button class="w-6 h-6 grid place-items-center rounded-full border border-ink-black bg-pure-white" onclick={() => (confirmDelete = null)}><X size={12} /></button>
+    {:else}
+      <button class="w-6 h-6 grid place-items-center rounded-full border border-ink-black bg-pure-white text-rise" title="删除"
+        onclick={() => armDelete(c)}><Trash2 size={12} /></button>
+    {/if}
+  </span>
+{/snippet}
+
+<!-- 图标钮组:读全文(有 raw 源文件时) + 打开卡 -->
+{#snippet iconActs(c)}
+  {#if c.sourceFile}
+    <button class="w-7 h-7 grid place-items-center rounded-full border border-ink-black bg-pure-white hover:bg-mint-splash" title="读全文"
+      onclick={() => store.openPage(c.sourceFile)}><FileText size={13} /></button>
+  {/if}
+  <button class="w-7 h-7 grid place-items-center rounded-full border border-ink-black bg-pure-white hover:bg-mint-splash" title="打开卡"
+    onclick={() => store.openPage(c.path)}><ExternalLink size={13} /></button>
+{/snippet}
+
+<!-- 摄取闭环:摄取 → 排队中(可点取消回退已读) → 已摄取;仅文章卡 -->
+{#snippet ingestCtl(c)}
+  {#if c.kind === 'article'}
+    {#if c.status === 'pending-ingest'}
+      <button class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-bubblegum flex items-center gap-1" title="取消摄取(回退已读)" disabled={saving}
+        onclick={() => act(() => store.updateCard(c.path, { status: 'read' }), '已取消摄取,回退已读')}>摄取排队中 <X size={11} /></button>
+    {:else if c.status === 'ingested'}
+      <span class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-mint-splash">已摄取</span>
+    {:else}
+      <button class="w-7 h-7 grid place-items-center rounded-full border border-ink-black bg-pure-white hover:bg-bubblegum" title="摄取" disabled={saving}
+        onclick={() => act(() => store.updateCard(c.path, { status: 'pending-ingest' }), '已标记摄取')}><Sparkles size={13} /></button>
+    {/if}
   {/if}
 {/snippet}
 
@@ -290,7 +345,8 @@
               <Sparkles size={13} /> 摄取
             </button>
           {:else if c.status === 'pending-ingest'}
-            <span class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-bubblegum">摄取排队中</span>
+            <button class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-bubblegum flex items-center gap-1" title="取消摄取(回退已读)" disabled={saving}
+              onclick={() => act(() => store.updateCard(c.path, { status: 'read' }), '已取消摄取,回退已读')}>摄取排队中 <X size={11} /></button>
           {:else}
             <span class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-mint-splash">已摄取</span>
           {/if}
@@ -305,7 +361,7 @@
         {#if confirmDelete === c.path}
           <span class="text-[11.5px] text-rise">{c.kind === 'article' ? '卡和全文一起删，' : ''}不可恢复</span>
           <button class="tab-btn tab-btn--sm" style="background:var(--color-rise);color:#fff" disabled={saving}
-            onclick={() => act(async () => { await store.deleteCard(c); confirmDelete = null; openPath = null }, '已删除')}>确认删除</button>
+            onclick={() => doDelete(c)}>确认删除</button>
           <button class="tab-btn tab-btn--sm" onclick={() => (confirmDelete = null)}>取消</button>
         {:else}
           <button class="tab-btn tab-btn--sm" disabled={saving} onclick={() => (confirmDelete = c.path)}><Trash2 size={13} /> 删除</button>
@@ -391,7 +447,8 @@
     {#if queueItems.length}
       <div class="grid gap-3 md:grid-cols-3">
         {#each queueItems as c (c.path)}
-          <div class="card card--link flex flex-col overflow-hidden cursor-pointer" onclick={() => toggleOpen(c)}>
+          <div class="card card--link relative flex flex-col overflow-hidden cursor-pointer" onclick={() => toggleOpen(c)}>
+            {@render cornerDelete(c)}
             {@render coverBlock(c, 'h-24')}
             <div class="p-3 flex-1 flex flex-col min-w-0">
               <div class="flex items-center gap-1.5 text-[10.5px] text-slate">
@@ -399,7 +456,7 @@
                 <span>{c.added || c.captured}</span>
               </div>
               <h4 class="text-[13.5px] font-bold leading-snug line-clamp-2 mt-1">{c.title}</h4>
-              <div class="mt-auto pt-2" onclick={(e) => e.stopPropagation()}>
+              <div class="mt-auto pt-2 flex items-center gap-1.5 flex-wrap" onclick={(e) => e.stopPropagation()}>
                 {#if c.kind === 'book'}
                   <button class="tab-btn tab-btn--sm" disabled={saving}
                     onclick={() => act(() => store.updateCard(c.path, { status: '在读', started: todayS }), '开始读')}>开始读</button>
@@ -407,6 +464,9 @@
                   <button class="tab-btn tab-btn--sm" disabled={saving}
                     onclick={() => act(() => store.updateCard(c.path, { status: 'read', finished: todayS }), '已读，进档案')}>标已读</button>
                 {/if}
+                <span class="flex-1"></span>
+                {@render ingestCtl(c)}
+                {@render iconActs(c)}
               </div>
             </div>
           </div>
@@ -421,7 +481,8 @@
     {#if readingBooks.length}
       <div class="grid gap-3 md:grid-cols-2">
         {#each readingBooks as c (c.path)}
-          <div class="card overflow-hidden flex flex-col">
+          <div class="card relative overflow-hidden flex flex-col cursor-pointer" onclick={() => toggleOpen(c)}>
+            {@render cornerDelete(c)}
             {@render coverBlock(c, 'h-28')}
             <div class="p-4 flex-1 flex flex-col">
               <div class="flex items-start justify-between gap-2">
@@ -432,13 +493,15 @@
                 <div class="h-full bg-mint-splash" style="width:{c.progress}%"></div>
               </div>
               <div class="text-[11px] text-slate mt-1.5">开始于 {c.started || '—'}</div>
-              <div class="flex gap-1.5 mt-3 flex-wrap">
+              <div class="flex gap-1.5 mt-3 flex-wrap items-center" onclick={(e) => e.stopPropagation()}>
                 <button class="tab-btn tab-btn--sm" disabled={saving} onclick={() => act(() => store.setCardProgress(c.path, c.progress + 10))}><Plus size={13} />10</button>
                 <button class="btn-mint" disabled={saving}
                   onclick={() => act(() => store.updateCard(c.path, { status: '已读', finished: todayS, progress: 100 }), '读完，进档案')}>读完 <Check size={13} /></button>
                 <button class="tab-btn tab-btn--sm" disabled={saving}
                   onclick={() => act(() => store.updateCard(c.path, { status: '弃读', finished: todayS }))}>弃读</button>
-                <button class="tab-btn tab-btn--sm" onclick={() => toggleOpen(c)}>{openPath === c.path ? '收起' : '展开'}</button>
+                <span class="flex-1"></span>
+                {@render ingestCtl(c)}
+                {@render iconActs(c)}
               </div>
             </div>
           </div>
@@ -470,7 +533,8 @@
     {#if archiveItems.length}
       <div class="grid gap-3 md:grid-cols-2">
         {#each archiveItems as c (c.path)}
-          <div class="card card--link overflow-hidden flex flex-col cursor-pointer" onclick={() => toggleOpen(c)}>
+          <div class="card card--link relative overflow-hidden flex flex-col cursor-pointer" onclick={() => toggleOpen(c)}>
+            {@render cornerDelete(c)}
             <div class="flex">
               {@render coverBlock(c, 'h-20 w-14 flex-none border-b-0 border-r')}
               <div class="p-3 flex-1 min-w-0">
@@ -484,10 +548,13 @@
                   {c.finished ? `读完 ${c.finished}` : ''}{c.thoughts.length ? ` · ${c.thoughts.length} 条感想` : ''}
                 </div>
                 <!-- 快捷动作:档案卡直接放回队列(stopPropagation 防展开) -->
-                <div class="mt-1.5" onclick={(e) => e.stopPropagation()}>
+                <div class="mt-1.5 flex items-center gap-1.5 flex-wrap" onclick={(e) => e.stopPropagation()}>
                   <button class="tab-btn tab-btn--sm" disabled={saving} onclick={() => requeue(c)}>
                     <RotateCcw size={12} /> 放回队列
                   </button>
+                  <span class="flex-1"></span>
+                  {@render ingestCtl(c)}
+                  {@render iconActs(c)}
                 </div>
               </div>
             </div>
