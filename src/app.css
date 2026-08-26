@@ -1,0 +1,204 @@
+/* Tailwind v4 —— 跳过 preflight（Obsidian 插件内 reset 会污染宿主 UI），只取 theme + utilities */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* ========== 本地字体（零外部请求） ========== */
+@font-face {
+  font-family: 'DM Serif Display';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/dm-serif-display-latin.woff2') format('woff2');
+}
+
+/* ========== Hatch 风格 Tokens（参考文档转译） ========== */
+@theme {
+  /* 色彩 — Hatch 原色 */
+  --color-cream-paper: #f5f4f0;
+  --color-pure-white: #ffffff;
+  --color-ink-black: #000000;
+  --color-charcoal: #222222;
+  --color-slate: #333333;
+  --color-fog: #dddfe2;
+  --color-mint-splash: #99ffcc;
+  --color-plum-ink: #160042;
+  --color-aubergine: #26153f;
+  --color-sky-pop: #7bbbff;
+  --color-bubblegum: #ff99cc;
+  --color-peach-pop: #ffcc99;
+
+  /* 语义色 — 向 pastel 靠浊，配 cream 底 */
+  --color-rise: #d6455f;      /* A股红涨，取 bubblegum 深版 */
+  --color-fall: #2f9e6b;      /* A股绿跌，取 mint 深版 */
+  --color-warn: #d98a2b;      /* 预警橙，取 peach 深版 */
+  --color-mint-dim: #5cd6a0;  /* mint 深版，图表当前值 */
+  --color-crane-red: #e0393e; /* 丹顶红（仙鹤冠点缀） */
+
+  /* 字体 */
+  --font-display: 'DM Serif Display', 'Songti SC', 'STSong', 'Noto Serif CJK SC', 'SimSun', serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+
+  /* 圆角 — Hatch 体系 */
+  --radius-card: 16px;
+  --radius-btn: 12px;
+
+  /* 布局 */
+  --page-max: 1200px;
+}
+
+/* ========== 基础（scope 到工作台视图容器，不碰全局） ========== */
+.workbench-root {
+  background: var(--color-cream-paper);
+  min-height: 100%;
+  font-family: var(--font-body);
+  color: var(--color-ink-black);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 无 preflight 环境下的最小补救（:where 零权重，组件 class 可覆盖） */
+:where(.workbench-root) ul { list-style: none; margin: 0; padding: 0; }
+:where(.workbench-root) p { margin: 0; }
+:where(.workbench-root) h1, :where(.workbench-root) h2, :where(.workbench-root) h3 { margin: 0; font-size: inherit; font-weight: inherit; }
+:where(.workbench-root) button { background: none; border: none; padding: 0; font: inherit; color: inherit; }
+
+/* ========== Obsidian 宿主样式隔离（宿主 button/heading 规则权重高，显式压制） ========== */
+.workbench-root h1, .workbench-root h2, .workbench-root h3, .workbench-root h4, .workbench-root h5, .workbench-root h6 { color: var(--color-ink-black); }
+.workbench-root button {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  border-radius: 0;
+  cursor: pointer;
+}
+.workbench-root input {
+  background: var(--color-pure-white);
+  box-shadow: none;
+  font: inherit;
+  color: inherit;
+}
+
+/* tab 按钮（主/子 tab 通用，--sm 小号；移动端底栏用 --bar） */
+.workbench-root .tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-pure-white);
+  border: 1px solid var(--color-ink-black);
+  border-radius: 9999px;
+  padding: 8px 16px;
+  font-size: 14px;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.workbench-root .tab-btn:hover { transform: translateY(-1px); }
+.workbench-root .tab-btn[data-active='true'] {
+  background: var(--color-mint-splash);
+  font-weight: 700;
+}
+.workbench-root .tab-btn--sm { padding: 6px 14px; font-size: 13px; }
+.workbench-root .tab-btn--bar {
+  border: none;
+  border-radius: 0;
+  padding: 10px 0;
+  font-size: 12px;
+  flex-direction: column;
+  gap: 1px;
+  justify-content: center;
+  width: 100%;
+}
+.workbench-root .tab-btn--bar:hover { transform: none; }
+
+/* mint 主按钮（提交/CTA） */
+.workbench-root .btn-mint {
+  background: var(--color-mint-splash);
+  border: 1px solid var(--color-ink-black);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.workbench-root .btn-mint:disabled { opacity: 0.6; cursor: default; }
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* ========== Hatch 招牌：mint 高亮涂抹（手绘感） ========== */
+.swash {
+  position: relative;
+  display: inline-block;
+  z-index: 0;
+  white-space: nowrap;
+}
+.swash::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: -0.35em;
+  right: -0.35em;
+  top: 38%;
+  bottom: 2%;
+  background: var(--color-mint-splash);
+  border-radius: 48% 52% 55% 45% / 62% 58% 42% 38%;
+  transform: rotate(-1.5deg);
+}
+.swash--sky::before { background: var(--color-sky-pop); }
+.swash--peach::before { background: var(--color-peach-pop); }
+.swash--pink::before { background: var(--color-bubblegum); }
+
+/* ========== 卡片（Hatch：白底 + 1px 黑边 + 16px 圆角，禁阴影） ========== */
+.card {
+  background: var(--color-pure-white);
+  border: 1px solid var(--color-ink-black);
+  border-radius: var(--radius-card);
+  transition: transform 0.15s ease;
+}
+.card--link:hover {
+  transform: translateY(-2px);
+}
+
+/* ========== 任务 checkbox（提权压制宿主 button 背景） ========== */
+.workbench-root .task-check {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border: 1.5px solid var(--color-ink-black);
+  border-radius: 6px;
+  background: var(--color-pure-white);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  margin-top: 2px;
+  padding: 0;
+}
+.workbench-root .task-check[data-done='true'] {
+  background: var(--color-mint-splash);
+}
+.workbench-root .task-check svg {
+  width: 12px;
+  height: 12px;
+  opacity: 0;
+}
+.workbench-root .task-check[data-done='true'] svg {
+  opacity: 1;
+}
+
+/* ========== 条件可见卡的虚线内框（空态/缺口通用） ========== */
+.dash-frame {
+  border: 1.5px dashed var(--color-fog);
+  border-radius: 12px;
+}
+
+/* 数字用 DM Serif Display 衬线字形 */
+.num {
+  font-family: 'DM Serif Display', 'Songti SC', serif;
+  font-variant-numeric: lining-nums;
+}
+
+/* 细滚动条（如果内容溢出） */
+*::-webkit-scrollbar { height: 6px; width: 6px; }
+*::-webkit-scrollbar-thumb { background: var(--color-fog); border-radius: 3px; }

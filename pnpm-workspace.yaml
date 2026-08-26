@@ -1,0 +1,3 @@
+# pnpm 11 安全特性:批准依赖的构建脚本(未批准 install 会 exit 1)
+allowBuilds:
+  esbuild: true
