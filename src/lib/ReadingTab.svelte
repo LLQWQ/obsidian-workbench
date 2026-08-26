@@ -201,9 +201,9 @@
             {:else}
               {#if dated}<span class="text-[11px] text-slate w-9 flex-none pt-0.5 num">{t.date}</span>{/if}
               {#if heading === '摘录'}
-                <span class="border-l-2 border-ink-black pl-2.5 flex-1">{t.text}</span>
+                <span class="border-l-2 border-ink-black pl-2.5 flex-1 min-w-0 break-words">{t.text}</span>
               {:else}
-                <span class="flex-1">{t.text}</span>
+                <span class="flex-1 min-w-0 break-words">{t.text}</span>
               {/if}
               <button class="text-slate hover:text-ink-black flex-none pt-1" title="改" onclick={() => startEdit(c, heading, ti, t.text)}><Pencil size={12} /></button>
               <button class="text-slate hover:text-rise flex-none pt-1" title="删" onclick={() => delEntry(c, heading, ti)}><X size={12} /></button>
@@ -230,7 +230,7 @@
 
 
 {#snippet detail(c)}
-  <div class="card p-5 md:p-6 grid gap-4">
+  <div class="card p-5 md:p-6 grid gap-4 [&>*]:min-w-0">
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
         <h3 class="font-display text-[19px] leading-snug">{c.title}</h3>
@@ -349,7 +349,7 @@
   </div>
 {/snippet}
 
-<div class="grid gap-4">
+<div class="grid gap-4 [&>*]:min-w-0">
   <!-- 子页签栏 -->
   <div class="flex items-center gap-2 flex-wrap">
     {#each subs as s}
@@ -519,7 +519,7 @@
           <div class="card p-4 flex gap-3">
             <div class="text-[11px] text-slate w-10 flex-none pt-0.5 num">{t.date || '—'}</div>
             <div class="flex-1 min-w-0">
-              <p class="text-[13.5px] text-charcoal leading-relaxed">{t.text}</p>
+              <p class="text-[13.5px] text-charcoal leading-relaxed break-words">{t.text}</p>
               <button class="mt-1.5 text-[11px] px-2 py-0.5 rounded-full border border-ink-black {t.card.kind === 'book' ? 'bg-peach-pop' : 'bg-sky-pop'}"
                 onclick={() => jumpTo(t.card)}>
                 {t.card.kind === 'book' ? '书' : '文章'} · {t.card.title.length > 24 ? t.card.title.slice(0, 24) + '…' : t.card.title}

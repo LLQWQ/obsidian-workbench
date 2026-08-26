@@ -1,7 +1,7 @@
 {
   "id": "workbench",
   "name": "阿斌工作台",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "1.4.0",
   "description": "个人工作台:待办/新闻/读书/健康 四 tab,写穿式直连 vault 事实源",
   "author": "鹤鹤",

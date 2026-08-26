@@ -22,7 +22,7 @@
 </script>
 
 <div class="workbench-root min-h-full bg-cream-paper text-ink-black">
-  <div class="max-w-[960px] mx-auto px-4 md:px-6 pb-24 md:pb-10">
+  <div class="wb-content max-w-[960px] mx-auto px-4 md:px-6">
     <!-- 顶栏 -->
     <nav class="flex items-center justify-between pt-4">
       <div class="flex items-center gap-2.5">
@@ -57,8 +57,8 @@
     </main>
   </div>
 
-  <!-- 移动端底部 tab bar -->
-  <div class="md:hidden fixed bottom-0 left-0 right-0 bg-cream-paper border-t border-ink-black z-10">
+  <!-- 移动端底部 tab bar(bottom 由 CSS 变量避让 Obsidian mobile-navbar) -->
+  <div class="wb-mobile-bar md:hidden">
     <div class="flex">
       {#each tabs as t}
         <button class="tab-btn tab-btn--bar" data-active={tab === t.key} onclick={() => (tab = t.key)}>

@@ -88,7 +88,7 @@
   let maxWeekly = $derived(weekly.length ? Math.max(...weekly.map(([, v]) => v)) : 1)
 </script>
 
-<div class="grid gap-4 md:grid-cols-2">
+<div class="grid gap-4 md:grid-cols-2 [&>*]:min-w-0">
   <!-- 训练热力图 -->
   <div class="card p-4 md:p-5 md:col-span-2">
     <div class="flex items-baseline justify-between mb-2">
@@ -153,12 +153,12 @@
     <!-- 补录表单(写穿 body_metrics.csv) -->
     <div class="mt-3 dash-frame p-3">
       <div class="text-[12px] text-slate mb-2">补录今日(写穿 CSV)</div>
-      <div class="flex gap-2 items-end">
+      <div class="flex flex-wrap gap-2 items-end">
         <input bind:value={wInput} placeholder="体重 kg" inputmode="decimal"
-          class="w-24 px-2 py-1.5 text-[14px] border border-ink-black rounded-[8px] bg-pure-white" />
+          class="flex-1 min-w-0 px-2 py-1.5 text-[14px] border border-ink-black rounded-[8px] bg-pure-white" />
         <input bind:value={fInput} placeholder="体脂 %" inputmode="decimal"
-          class="w-24 px-2 py-1.5 text-[14px] border border-ink-black rounded-[8px] bg-pure-white" />
-        <button onclick={saveMetric} disabled={saving} class="btn-mint">
+          class="flex-1 min-w-0 px-2 py-1.5 text-[14px] border border-ink-black rounded-[8px] bg-pure-white" />
+        <button onclick={saveMetric} disabled={saving} class="btn-mint flex-none">
           {saving ? '写入…' : '记一笔'}
         </button>
       </div>
