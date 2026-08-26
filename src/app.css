@@ -57,20 +57,9 @@
   overflow-x: clip;
 }
 
-/* 内容区底部留白:移动端 = 底栏(~52px) + Obsidian mobile-navbar + 余量;桌面端 40px */
-.wb-content { padding-bottom: calc(110px + var(--obsidian-mobile-navbar-h, 0px)); }
+/* 内容区底部留白:移动端避让 Obsidian mobile-navbar(内容滚到底不被宿主底栏遮住);桌面端 40px */
+.wb-content { padding-bottom: calc(24px + var(--obsidian-mobile-navbar-h, 0px)); }
 @media (min-width: 768px) { .wb-content { padding-bottom: 40px; } }
-
-/* 移动端底部 tab bar:抬到 Obsidian mobile-navbar 之上,避免被宿主菜单栏遮盖 */
-.wb-mobile-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: var(--obsidian-mobile-navbar-h, 0px);
-  z-index: 10;
-  background: var(--color-cream-paper);
-  border-top: 1px solid var(--color-ink-black);
-}
 
 /* 无 preflight 环境下的最小补救（:where 零权重，组件 class 可覆盖） */
 :where(.workbench-root) ul { list-style: none; margin: 0; padding: 0; }
@@ -115,17 +104,6 @@
   font-weight: 700;
 }
 .workbench-root .tab-btn--sm { padding: 6px 14px; font-size: 13px; }
-.workbench-root .tab-btn--bar {
-  border: none;
-  border-radius: 0;
-  padding: 10px 0;
-  font-size: 12px;
-  flex-direction: column;
-  gap: 1px;
-  justify-content: center;
-  width: 100%;
-}
-.workbench-root .tab-btn--bar:hover { transform: none; }
 
 /* mint 主按钮（提交/CTA） */
 .workbench-root .btn-mint {
@@ -216,6 +194,8 @@
   font-variant-numeric: lining-nums;
 }
 
-/* 细滚动条（如果内容溢出） */
-*::-webkit-scrollbar { height: 6px; width: 6px; }
-*::-webkit-scrollbar-thumb { background: var(--color-fog); border-radius: 3px; }
+/* 隐藏滚动条(保留滚动):工作台内部 + 宿主视图容器,不外溢到其他笔记页 */
+.workbench-root, .workbench-root * { scrollbar-width: none; }
+.workbench-root::-webkit-scrollbar, .workbench-root *::-webkit-scrollbar { width: 0; height: 0; display: none; }
+.workspace-leaf-content[data-type='workbench-view'] .view-content { scrollbar-width: none; }
+.workspace-leaf-content[data-type='workbench-view'] .view-content::-webkit-scrollbar { width: 0; height: 0; display: none; }

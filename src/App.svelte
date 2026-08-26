@@ -34,10 +34,10 @@
       </span>
     </nav>
 
-    <!-- 桌面 tab 栏(顶部) -->
-    <div class="hidden md:flex gap-2 mt-5">
+    <!-- tab 栏(全端顶部,移动端紧凑) -->
+    <div class="flex flex-wrap gap-2 mt-5">
       {#each tabs as t}
-        <button class="tab-btn" data-active={tab === t.key} onclick={() => (tab = t.key)}>
+        <button class="tab-btn max-md:px-3 max-md:py-1.5 max-md:text-[13px]" data-active={tab === t.key} onclick={() => (tab = t.key)}>
           <t.icon size={15} strokeWidth={2.2} /> {t.label}
         </button>
       {/each}
@@ -55,17 +55,5 @@
         <HealthTab {store} />
       {/if}
     </main>
-  </div>
-
-  <!-- 移动端底部 tab bar(bottom 由 CSS 变量避让 Obsidian mobile-navbar) -->
-  <div class="wb-mobile-bar md:hidden">
-    <div class="flex">
-      {#each tabs as t}
-        <button class="tab-btn tab-btn--bar" data-active={tab === t.key} onclick={() => (tab = t.key)}>
-          <t.icon size={17} strokeWidth={2.2} />
-          {t.label}
-        </button>
-      {/each}
-    </div>
   </div>
 </div>
