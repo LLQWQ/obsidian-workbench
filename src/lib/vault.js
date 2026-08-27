@@ -136,9 +136,14 @@ export async function cancelTaskInFile(read, write, task) {
   await mutateTaskInFile(read, write, task, (l) => l.replace('- [ ]', '- [-]'))
 }
 
-// 删除:物理删行(二次确认由调用方负责)
+// 删除:父行+缩进块整块物理删除(二次确认由调用方负责);块行不得留孤儿
 export async function deleteTaskInFile(read, write, task) {
-  await mutateTaskInFile(read, write, task, () => null)
+  const md = await read(TODO_PATH)
+  const lines = md.split('\n')
+  const idx = findTaskLine(lines, task)
+  if (idx < 0) throw new Error(`任务行未找到: ${task.title}`)
+  lines.splice(idx, blockEnd(lines, idx) - idx + 1)
+  await write(TODO_PATH, lines.join('\n'))
 }
 
 // 改/清 @due(due=null 清除)
@@ -155,8 +160,8 @@ export async function moveTaskInFile(read, write, task, targetSection) {
   const lines = md.split('\n')
   const idx = findTaskLine(lines, task)
   if (idx < 0) throw new Error(`任务行未找到: ${task.title}`)
-  const [row] = lines.splice(idx, 1)
-  insertIntoSection(lines, targetSection, row)
+  const rows = lines.splice(idx, blockEnd(lines, idx) - idx + 1) // 整块搬,块行不留孤儿
+  insertBlockIntoSection(lines, targetSection, rows)
   await write(TODO_PATH, lines.join('\n'))
 }
 

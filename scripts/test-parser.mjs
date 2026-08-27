@@ -117,9 +117,10 @@ const MIX = `- [ ] **混排** @c(2026-08-27) @p(2026-08-27)
 const mixT = parseTasks(MIX).tasks[0]
 eq(mixT.block.map((b) => b.type), ['sub', 'text'], 'c4 备注续行归父层(不被子任务吞)')
 eq(mixT.block[1].text, '08-27 转等待:备注文本', 'c4 备注文本内容')
-// c5: legacy/fields 判定边界——正文任意位置 @p 即 fields
-eq(detectMode('## 今天\n- [ ] 有承诺 @c(2026-08-27) @p(2026-08-28)\n'), 'fields', 'c5 任意@p→fields')
-eq(detectMode('- [ ] 无承诺 @c(2026-08-27) @due(2026-08-28)\n'), 'legacy', 'c5 无@p→legacy')
+// c5: legacy/fields 判定边界——结构判定(08-27 事故修订):## 分区头→legacy,无→fields;@p 有无不参判
+eq(detectMode('## 今天\n- [ ] 有承诺 @c(2026-08-27) @p(2026-08-28)\n'), 'legacy', 'c5 有分区头(含@p)→legacy')
+eq(detectMode('- [ ] 无承诺 @c(2026-08-27) @due(2026-08-28)\n'), 'fields', 'c5 无分区头(零@p)→fields')
+eq(detectMode('# 待办\n协议头\n---\n- [ ] 零承诺任务 @c(2026-08-27)\n'), 'fields', 'c5 新文件全池零@p→fields')
 
 console.log(`\n========== 汇总: ${pass} PASS / ${fail} FAIL ==========`)
 process.exit(fail ? 1 : 0)
