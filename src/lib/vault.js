@@ -1,7 +1,11 @@
 // ============================================================
 // 数据访问层 —— 插件版直读写 vault;浏览器预览版传 null 走 mock
 // store 接口与组件解耦:组件只认 store,不认 Obsidian
+// 待办解析已抽离到 todoParser.js(纯模块,node 可测),此处 re-export 保持 API
 // ============================================================
+import { detectMode, parseTodos, parseTasks, deriveViews } from './todoParser.js'
+
+export { detectMode, parseTodos, parseTasks, deriveViews }
 
 const TODO_PATH = 'wiki/00_待办.md'
 const SESSIONS_PATH = 'wiki/健康/data/training_sessions.csv'
@@ -15,47 +19,6 @@ const RAW_ARTICLES_DIR = 'wiki/raw/articles'
 
 export function todayStr(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-// ---------- 00_待办.md 解析 ----------
-export function parseTodos(md) {
-  const lines = md.split('\n')
-  let section = null
-  const tasks = []
-  lines.forEach((line, idx) => {
-    const h = line.match(/^##\s+(.+)/)
-    if (h) {
-      const t = h[1]
-      if (t.includes('今天')) section = 'today'
-      else if (t.includes('本周')) section = 'week'
-      else if (t.includes('待办池')) section = 'pool'
-      else if (t.includes('已完成')) section = 'done'
-      else section = null
-      return
-    }
-    const m = line.match(/^- \[([ xX\-])\]\s*(.*)$/)
-    if (!m || !section) return
-    const body = m[2]
-    const meta = {}
-    for (const mm of body.matchAll(/@(c|s|d|h|due)\((\d{4}-\d{2}-\d{2})\)/g)) meta[mm[1]] = mm[2]
-    // 旧格式尾部时间戳 (MM-DD HH:MM 备注)
-    const oldDone = body.match(/\((\d{2})-(\d{2})\s+\d{2}:\d{2}/)
-    const titleM = body.match(/^\*\*(.+?)\*\*/)
-    const title = (titleM ? titleM[1] : body.split(' — ')[0].split('@c(')[0]).trim()
-    const mark = m[1]
-    tasks.push({
-      line: idx,
-      section,
-      status: mark === 'x' || mark === 'X' ? 'done' : mark === '-' ? 'cancelled' : meta.h ? 'hold' : 'todo',
-      title,
-      body,
-      created: meta.c || null,
-      doneDate: meta.d || (mark === 'x' && oldDone ? `2026-${oldDone[1]}-${oldDone[2]}` : null),
-      holdDate: meta.h || null,
-      due: meta.due || null,
-    })
-  })
-  return tasks
 }
 
 // ---------- 00_待办.md 写穿函数族 ----------
@@ -110,15 +73,39 @@ export async function toggleTaskInFile(read, write, task, today) {
   await write(TODO_PATH, lines.join('\n'))
 }
 
+// 块范围:父行 idx 起,后续连续缩进(≥2空格/制表符)非空行;返回末行号(无块=idx)
+function blockEnd(lines, idx) {
+  let e = idx
+  for (let i = idx + 1; i < lines.length; i++) {
+    if (/^(?: {2,}|\t)/.test(lines[i]) && lines[i].trim()) e = i
+    else break
+  }
+  return e
+}
+
 // 加任务:标题去 * 防爆粗体标记;@c 必带,@due 可选
-export async function addTaskInFile(read, write, { title, section, due }, today) {
+// 双模式:legacy → 插目标区末尾;fields → 带 @p,插最后一个非已完成区任务的块尾(无则 ✅区前/文末)
+export async function addTaskInFile(read, write, { title, section, due, promise }, today) {
   const md = await read(TODO_PATH)
   const lines = md.split('\n')
   const safe = title.replace(/\*/g, '').trim()
   if (!safe) throw new Error('任务标题不能为空')
   let taskLine = `- [ ] **${safe}** @c(${today})`
   if (due) taskLine += ` @due(${due})`
-  insertIntoSection(lines, section, taskLine)
+  if (detectMode(md) === 'fields') {
+    if (promise) taskLine += ` @p(${promise})`
+    const doneR = sectionRange(lines, 'done')
+    let last = -1
+    for (let i = 0; i < lines.length; i++) {
+      if (doneR && i > doneR.start && i < doneR.end) break
+      if (/^- \[[ xX\-]\]/.test(lines[i])) last = i
+    }
+    if (last >= 0) lines.splice(blockEnd(lines, last) + 1, 0, taskLine)
+    else if (doneR) lines.splice(doneR.start, 0, taskLine, '')
+    else lines.push(taskLine)
+  } else {
+    insertIntoSection(lines, section, taskLine)
+  }
   await write(TODO_PATH, lines.join('\n'))
 }
 
@@ -172,7 +159,22 @@ export async function moveTaskInFile(read, write, task, targetSection) {
   await write(TODO_PATH, lines.join('\n'))
 }
 
-// 过夜归档:非已完成区的 [x] 且 @d < today → 批量移入 ✅已完成区末尾;返回移动条数
+// 整块插入区末尾(最后一个任务块之后;空区插标题行后空行处)
+function insertBlockIntoSection(lines, key, blockRows) {
+  const r = sectionRange(lines, key)
+  if (!r) throw new Error(`区未找到: ${key}`)
+  let last = -1
+  for (let i = r.start + 1; i < r.end; i++) if (/^- \[[ xX\-]\]/.test(lines[i])) last = i
+  if (last >= 0) lines.splice(blockEnd(lines, last) + 1, 0, ...blockRows)
+  else {
+    let j = r.start + 1
+    while (j < r.end && lines[j].trim() === '') j++
+    lines.splice(j, 0, ...blockRows)
+  }
+}
+
+// 过夜归档:非已完成区的 [x] 且 @d < today → 整块(父行+缩进块)移入 ✅已完成区末尾;返回移动条数
+// legacy 文件无缩进块 → 行为与单行版一致;fields 块任务整块搬,子行不变孤儿
 export async function archiveDoneInFile(read, write, today) {
   const md = await read(TODO_PATH)
   const lines = md.split('\n')
@@ -187,16 +189,87 @@ export async function archiveDoneInFile(read, write, today) {
       const d = l.match(/@d\((\d{4}-\d{2}-\d{2})\)/)
       // 只动有 @d 且早于今天的;无 @d 的旧格式 [x] 不碰(安全优先)
       if (d && d[1] < today) {
-        moved.push(l)
+        const block = [l]
+        let j = i + 1
+        while (j < lines.length && /^(?: {2,}|\t)/.test(lines[j]) && lines[j].trim()) {
+          block.push(lines[j])
+          j++
+        }
+        moved.push(block)
+        i = j - 1
         continue
       }
     }
     remaining.push(l)
   }
   if (!moved.length) return 0
-  for (const row of moved) insertIntoSection(remaining, 'done', row)
+  for (const block of moved) insertBlockIntoSection(remaining, 'done', block)
   await write(TODO_PATH, remaining.join('\n'))
   return moved.length
+}
+
+// ---------- fields 模式写穿 ----------
+// 子任务勾选:父行定位后块内找子行(标题前20字),[ ]↔[x] 独立翻转,不碰元数据(元数据只住父行)
+export async function toggleSubtaskInFile(read, write, task, sub) {
+  const md = await read(TODO_PATH)
+  const lines = md.split('\n')
+  const idx = findTaskLine(lines, task)
+  if (idx < 0) throw new Error(`任务行未找到: ${task.title}`)
+  const end = blockEnd(lines, idx)
+  const key = sub.title.slice(0, 20)
+  for (let i = idx + 1; i <= end; i++) {
+    if (!/^\s+- \[[ xX\-]\]/.test(lines[i]) || !lines[i].includes(key)) continue
+    if (lines[i].includes('- [ ]')) lines[i] = lines[i].replace('- [ ]', '- [x]')
+    else if (/- \[[xX]\]/.test(lines[i])) lines[i] = lines[i].replace(/- \[[xX]\]/, '- [ ]')
+    else return // [-] 已取消,不动
+    await write(TODO_PATH, lines.join('\n'))
+    return
+  }
+  throw new Error(`子任务未找到: ${sub.title}`)
+}
+
+// 状态操作 + 可选备注:改父行字段,块尾追加「  MM-DD 动作:备注」(不填备注也能操作)
+// action: hold(写@h今天) / unhold(清@h) / wait(写@w今天) / unwait(清@w) / pool(清@p@w@h 降级回池) / cancel([ ]→[-] 留档)
+const ACTION_LABEL = { hold: '冻结', unhold: '解冻', wait: '转等待', unwait: '解除等待', pool: '降级回池', cancel: '取消' }
+export async function applyTaskActionInFile(read, write, task, action, note, today) {
+  const md = await read(TODO_PATH)
+  const lines = md.split('\n')
+  const idx = findTaskLine(lines, task)
+  if (idx < 0) throw new Error(`任务行未找到: ${task.title}`)
+  let l = lines[idx]
+  if (action === 'hold') l = l.replace(/\s*@h\(\d{4}-\d{2}-\d{2}\)/g, '') + ` @h(${today})`
+  else if (action === 'unhold') l = l.replace(/\s*@h\(\d{4}-\d{2}-\d{2}\)/g, '')
+  else if (action === 'wait') l = l.replace(/\s*@w\(\d{4}-\d{2}-\d{2}\)/g, '') + ` @w(${today})`
+  else if (action === 'unwait') l = l.replace(/\s*@w\(\d{4}-\d{2}-\d{2}\)/g, '')
+  else if (action === 'pool') l = l.replace(/\s*@(p|w|h)\(\d{4}-\d{2}-\d{2}\)/g, '')
+  else if (action === 'cancel') l = l.replace('- [ ]', '- [-]')
+  else throw new Error(`未知状态操作: ${action}`)
+  lines[idx] = l
+  const clean = (note || '').replace(/[\r\n]+/g, ' ').trim()
+  const noteLine = `  ${today.slice(5)} ${ACTION_LABEL[action]}${clean ? `：${clean}` : ''}`
+  lines.splice(blockEnd(lines, idx) + 1, 0, noteLine)
+  await write(TODO_PATH, lines.join('\n'))
+}
+
+// 承诺日写穿:改/清 @p(date=null 清除);已有 @p 改期 → @r 再承诺计数 +1(无则立 1)
+export async function setTaskPromiseInFile(read, write, task, date) {
+  const md = await read(TODO_PATH)
+  const lines = md.split('\n')
+  const idx = findTaskLine(lines, task)
+  if (idx < 0) throw new Error(`任务行未找到: ${task.title}`)
+  let l = lines[idx]
+  const cur = l.match(/@p\((\d{4}-\d{2}-\d{2})\)/)
+  l = l.replace(/\s*@p\(\d{4}-\d{2}-\d{2}\)/g, '')
+  if (date) {
+    l += ` @p(${date})`
+    if (cur && cur[1] !== date) {
+      const r = l.match(/@r\((\d+)\)/)
+      const n = r ? parseInt(r[1]) + 1 : 1
+      l = r ? l.replace(/@r\(\d+\)/, `@r(${n})`) : `${l} @r(${n})`
+    }
+  }
+  lines[idx] = l
+  await write(TODO_PATH, lines.join('\n'))
 }
 
 // ---------- CSV 解析(无引号字段,简单切) ----------
@@ -504,13 +577,14 @@ export function createVaultStore(adapter, app = null) {
 
   return {
     async getTodos() {
-      return parseTodos(await read(TODO_PATH))
+      // { mode: 'legacy'|'fields', tasks } —— 双兼容入口,组件按 mode 分渲染路径
+      return parseTasks(await read(TODO_PATH))
     },
     async toggleTask(task) {
       await toggleTaskInFile(read, write, task, todayStr())
     },
-    async addTask({ title, section, due }) {
-      await addTaskInFile(read, write, { title, section, due }, todayStr())
+    async addTask({ title, section, due, promise }) {
+      await addTaskInFile(read, write, { title, section, due, promise }, todayStr())
     },
     async moveTask(task, targetSection) {
       await moveTaskInFile(read, write, task, targetSection)
@@ -526,6 +600,16 @@ export function createVaultStore(adapter, app = null) {
     },
     async setTaskDue(task, due) {
       await setTaskDueInFile(read, write, task, due)
+    },
+    // fields 模式:子任务勾选 / 状态操作+块备注 / 承诺日(@r 联动)
+    async toggleSubtask(task, sub) {
+      await toggleSubtaskInFile(read, write, task, sub)
+    },
+    async taskAction(task, action, note) {
+      await applyTaskActionInFile(read, write, task, action, note, todayStr())
+    },
+    async setTaskPromise(task, date) {
+      await setTaskPromiseInFile(read, write, task, date)
     },
     // 过夜归档:@d<today 的 [x] 移入已完成区,返回移动条数
     async archiveDone() {
