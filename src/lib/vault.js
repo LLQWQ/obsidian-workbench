@@ -699,8 +699,9 @@ export function createVaultStore(adapter, app = null) {
         }
       }
       try {
-        const todos = parseTodos(await read(TODO_PATH))
-        res.tasks = todos.filter((t) => t.body.includes(`[[${card.name}]]`))
+        // 双模式统一入口:fields 平铺文件里 parseTodos 分区解析会漏,parseTasks 两种模式都全量
+        const { tasks } = parseTasks(await read(TODO_PATH))
+        res.tasks = tasks.filter((t) => t.body.includes(`[[${card.name}]]`))
       } catch { /* 待办文件缺失就空 */ }
       return res
     },

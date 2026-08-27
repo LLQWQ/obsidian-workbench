@@ -37,6 +37,7 @@
   let confirmCancel = $state(false)
   let dueInput = $state('')
   let actionNote = $state('') // fields 状态操作可选备注
+  let promiseInput = $state('') // fields 承诺日 @p 编辑
 
   // 过夜归档守卫
   let archiving = $state(false)
@@ -63,7 +64,7 @@
     { key: 'week', label: '本周' },
     { key: 'pool', label: '池' },
   ]
-  const ACTION_TIP = { hold: '已冻结', unhold: '已解冻', wait: '已转等待', unwait: '已解除等待', pool: '已降级回池' }
+  const ACTION_TIP = { hold: '已冻结', unhold: '已解冻', wait: '已转等待', unwait: '已解除等待', pool: '已降级回池', cancel: '已取消(留档 [-])' }
   const keyOf = (t) => `${t.title}|${t.created || ''}`
 
   onMount(() => {
@@ -185,6 +186,7 @@
     confirmDelete = false
     confirmCancel = false
     dueInput = t.due || ''
+    promiseInput = t.promise || ''
     actionNote = ''
   }
 
@@ -565,12 +567,26 @@
                   {#if confirmCancel}
                     <span class="text-[11.5px] text-warn">标 [-] 留档不再做</span>
                     <button class="tab-btn tab-btn--sm" style="background:var(--color-warn);color:#fff" disabled={busy}
-                      onclick={() => act(() => store.cancelTask(t), '已取消(留档 [-])')}>确认取消</button>
+                      onclick={() => doAction(t, 'cancel')}>确认取消</button>
                     <button class="tab-btn tab-btn--sm" onclick={() => (confirmCancel = false)}>不了</button>
                   {:else}
                     <button class="tab-btn tab-btn--sm" disabled={busy} onclick={() => (confirmCancel = true)}>
                       <Ban size={13} /> 取消
                     </button>
+                  {/if}
+                </div>
+              </div>
+
+              <!-- fields 承诺日 @p:改期触发 @r 再承诺计数;清除=回池 -->
+              <div>
+                <div class="text-[12px] text-slate mb-1.5 flex items-center gap-1"><CalendarDays size={12} /> 承诺日 @p(改期自动记 @r)</div>
+                <div class="flex gap-2 items-center flex-wrap">
+                  <input type="date" bind:value={promiseInput}
+                    class="px-2 py-1.5 text-[13px] border border-ink-black rounded-[8px] bg-pure-white" />
+                  <button class="btn-mint" disabled={busy || !promiseInput || promiseInput === t.promise}
+                    onclick={() => act(() => store.setTaskPromise(t, promiseInput), '已承诺 @p')}>存</button>
+                  {#if t.promise}
+                    <button class="tab-btn tab-btn--sm" disabled={busy} onclick={() => act(async () => { await store.setTaskPromise(t, null); promiseInput = '' }, '已清 @p(回池)')}>清除</button>
                   {/if}
                 </div>
               </div>
