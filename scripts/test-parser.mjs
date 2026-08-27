@@ -122,5 +122,13 @@ eq(detectMode('## 今天\n- [ ] 有承诺 @c(2026-08-27) @p(2026-08-28)\n'), 'le
 eq(detectMode('- [ ] 无承诺 @c(2026-08-27) @due(2026-08-28)\n'), 'fields', 'c5 无分区头(零@p)→fields')
 eq(detectMode('# 待办\n协议头\n---\n- [ ] 零承诺任务 @c(2026-08-27)\n'), 'fields', 'c5 新文件全池零@p→fields')
 
+// c6: 回收站 @x——软删除不进任何活动视图,trash 单列;完成后删除只进回收站
+const TRASH_MD = '# 待办\n- [ ] 活跃 @c(2026-08-27)\n- [ ] 已删 @c(2026-08-26) @x(2026-08-27)\n- [x] 已完成 @c(2026-08-25) @d(2026-08-26)\n- [x] 完成后删除 @c(2026-08-24) @d(2026-08-26) @x(2026-08-27)\n'
+const trashV = deriveViews(parseTasks(TRASH_MD).tasks, '2026-08-27')
+eq(trashV.pool.length, 1, 'c6 @x 不进池')
+eq(trashV.done.length, 1, 'c6 完成后删除不进已完成')
+eq(trashV.trash.length, 2, 'c6 回收站=有@x')
+eq(trashV.trash[0].deletedDate, '2026-08-27', 'c6 deletedDate 解析')
+
 console.log(`\n========== 汇总: ${pass} PASS / ${fail} FAIL ==========`)
 process.exit(fail ? 1 : 0)

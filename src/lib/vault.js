@@ -136,13 +136,41 @@ export async function cancelTaskInFile(read, write, task) {
   await mutateTaskInFile(read, write, task, (l) => l.replace('- [ ]', '- [-]'))
 }
 
-// 删除:父行+缩进块整块物理删除(二次确认由调用方负责);块行不得留孤儿
-export async function deleteTaskInFile(read, write, task) {
+// 删除=软删除入回收站:父行补 @x(今天),块尾备注,整块移文件末沉底;恢复走 restoreTaskInFile
+// (物理删除已废——回收站语义,任何删除都可恢复)
+export async function deleteTaskInFile(read, write, task, today) {
   const md = await read(TODO_PATH)
   const lines = md.split('\n')
   const idx = findTaskLine(lines, task)
   if (idx < 0) throw new Error(`任务行未找到: ${task.title}`)
-  lines.splice(idx, blockEnd(lines, idx) - idx + 1)
+  const rows = lines.splice(idx, blockEnd(lines, idx) - idx + 1)
+  rows[0] = rows[0].replace(/\s*@x\(\d{4}-\d{2}-\d{2}\)/g, '') + ` @x(${today})`
+  rows.push(`  ${today.slice(5)} 删除入回收站`)
+  while (lines.length && !lines[lines.length - 1].trim()) lines.pop()
+  lines.push('', ...rows, '')
+  await write(TODO_PATH, lines.join('\n'))
+}
+
+// 回收站恢复:清 @x,块尾备注,整块移回活跃列表末(沉底标记行前;无标记则最后一个未完成块尾)
+export async function restoreTaskInFile(read, write, task, today) {
+  const md = await read(TODO_PATH)
+  const lines = md.split('\n')
+  const idx = findTaskLine(lines, task)
+  if (idx < 0) throw new Error(`任务行未找到: ${task.title}`)
+  const rows = lines.splice(idx, blockEnd(lines, idx) - idx + 1)
+  rows[0] = rows[0].replace(/\s*@x\(\d{4}-\d{2}-\d{2}\)/g, '')
+  rows.push(`  ${today.slice(5)} 从回收站恢复`)
+  const sinkMark = lines.findIndex((l) => l.includes('以下为已完成'))
+  if (sinkMark >= 0) {
+    let at = sinkMark
+    while (at > 0 && !lines[at - 1].trim()) at--
+    lines.splice(at, 0, ...rows, '')
+  } else {
+    let last = -1
+    for (let i = 0; i < lines.length; i++) if (/^- \[ \]/.test(lines[i])) last = i
+    if (last >= 0) lines.splice(blockEnd(lines, last) + 1, 0, ...rows)
+    else lines.push(...rows)
+  }
   await write(TODO_PATH, lines.join('\n'))
 }
 
@@ -607,7 +635,10 @@ export function createVaultStore(adapter, app = null) {
       await cancelTaskInFile(read, write, task)
     },
     async deleteTask(task) {
-      await deleteTaskInFile(read, write, task)
+      await deleteTaskInFile(read, write, task, todayStr())
+    },
+    async restoreTask(task) {
+      await restoreTaskInFile(read, write, task, todayStr())
     },
     async setTaskDue(task, due) {
       await setTaskDueInFile(read, write, task, due)

@@ -29,6 +29,9 @@
   // 待办池折叠
   let poolOpen = $state(false)
 
+  // 回收站折叠(fields)
+  let trashOpen = $state(false)
+
   // 热力图点击明细
   let selectedDate = $state(null)
 
@@ -244,6 +247,7 @@
   )
   let waitTasks = $derived(views ? views.waiting : [])
   let holdTasks = $derived(views ? views.hold : [])
+  let trashTasks = $derived(views ? views.trash : [])
   let monthDone = $derived(todos.filter((t) => t.doneDate && t.doneDate >= monthStartS))
   let rolling = $derived(
     todos
@@ -421,9 +425,32 @@
           <div class="text-[12px] text-slate mt-1">{mode === 'fields' ? '点任务弹窗可承诺 @p / 转等待 / 冻结' : '点任务弹窗可移动到 今天/本周'}</div>
         {/if}
       </div>
+      <!-- 回收站折叠区(fields):软删除整块沉底带 @x,可恢复 -->
+      {#if mode === 'fields' && trashTasks.length > 0}
+        <div class="card p-4 md:p-5 mt-4">
+          <button class="w-full flex items-center justify-between" onclick={() => (trashOpen = !trashOpen)}>
+            <h3 class="font-display text-[17px] flex items-center gap-1.5"><Trash2 size={16} /> 回收站</h3>
+            <span class="flex items-center gap-1.5 text-[12px] text-slate">
+              {trashTasks.length} 条
+              {#if trashOpen}<ChevronUp size={15} />{:else}<ChevronDown size={15} />{/if}
+            </span>
+          </button>
+          {#if trashOpen}
+            <ul class="mt-1">
+              {#each trashTasks as t (keyOf(t))}
+                <li class="flex gap-2 items-center py-2 border-b border-fog last:border-b-0">
+                  <span class="flex-1 min-w-0 text-[13px] text-slate line-through break-words"><WikiText text={t.title} onopen={openWiki} /></span>
+                  <span class="text-[11px] text-slate whitespace-nowrap">{t.deletedDate?.slice(5)}</span>
+                  <button class="btn-mint flex-none text-[11px]" disabled={busy}
+                    onclick={() => act(async () => { await store.restoreTask(t) }, '已恢复')}>恢复</button>
+                </li>
+              {/each}
+            </ul>
+            <div class="text-[12px] text-slate mt-1">删除整块沉底带 @x 标记 · 恢复即清 @x 回活跃列表末尾</div>
+          {/if}
+        </div>
+      {/if}
     {/if}
-
-    <!-- ==================== 周视图 ==================== -->
     {#if sub === 'week'}
       <div class="grid gap-4">
         <div class="card p-4 md:p-5">
@@ -648,9 +675,9 @@
           <!-- 删除(二次确认) -->
           <div class="flex justify-end gap-1.5 pt-1 border-t border-fog">
             {#if confirmDelete}
-              <span class="text-[11.5px] text-rise self-center">物理删行,不可恢复</span>
+              <span class="text-[11.5px] text-rise self-center">移入回收站,可恢复</span>
               <button class="tab-btn tab-btn--sm" style="background:var(--color-rise);color:#fff" disabled={busy}
-                onclick={() => act(async () => { await store.deleteTask(t); openKey = null }, '已删除')}>确认删除</button>
+                onclick={() => act(async () => { await store.deleteTask(t); openKey = null }, '已入回收站')}>确认删除</button>
               <button class="tab-btn tab-btn--sm" onclick={() => (confirmDelete = false)}>取消</button>
             {:else}
               <button class="tab-btn tab-btn--sm" disabled={busy} onclick={() => (confirmDelete = true)}><Trash2 size={13} /> 删除</button>

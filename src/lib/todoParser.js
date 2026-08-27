@@ -56,7 +56,7 @@ export function parseTodos(md) {
 const TASK_RE = /^- \[([ xX\-])\]\s*(.*)$/
 const SUB_RE = /^(\s+)- \[([ xX\-])\]\s*(.*)$/
 const INDENT_RE = /^(?: {2,}|\t)/
-const META_DATE_RE = /@(c|s|d|h|due|p|w)\((\d{4}-\d{2}-\d{2})\)/g
+const META_DATE_RE = /@(c|s|d|h|due|p|w|x)\((\d{4}-\d{2}-\d{2})\)/g
 
 function sectionOf(heading) {
   if (heading.includes('今天')) return 'today'
@@ -94,6 +94,7 @@ function parseParentLine(line, idx, section) {
     due: meta.due || null,
     promise: meta.p || null, // @p 承诺日
     wait: meta.w || null, //    @w 等待日
+    deletedDate: meta.x || null, // @x 删除日(回收站)
     rePromise: r ? parseInt(r[1]) : 0, // @r 再承诺次数
     block: [], //           [{type:'text',text,line} | {type:'sub',mark,title,body,line,indent,children:[...]}]
     waiting: null, //       块内「等待:」行的条件文本
@@ -185,7 +186,8 @@ export function parseTasks(text) {
 
 // ---------- 六视图派生(fields 模式) ----------
 // 今天=@p今天且无@d / 本周=@p∈本周或@due∈本周 / 待办池=无@p@w@h@d
-// 等待中=有@w无@d / 冻结=有@h无@d / 已完成=有@d;取消([-])不进任何活动视图
+// 等待中=有@w无@d / 冻结=有@h无@d / 已完成=有@d;取消([-])与删除(@x)不进任何活动视图
+// 回收站=有@x(软删除沉底,可恢复)
 export function deriveViews(tasks, todayS) {
   const d = new Date(`${todayS}T00:00:00`)
   const fmt = (x) =>
@@ -197,14 +199,15 @@ export function deriveViews(tasks, todayS) {
   const weekStartS = fmt(ws)
   const weekEndS = fmt(we)
   const inWeek = (s) => s && s >= weekStartS && s <= weekEndS
-  const active = (t) => t.status !== 'cancelled'
+  const active = (t) => t.status !== 'cancelled' && !t.deletedDate
   return {
     today: tasks.filter((t) => active(t) && t.promise === todayS && !t.doneDate),
     week: tasks.filter((t) => active(t) && !t.doneDate && (inWeek(t.promise) || inWeek(t.due))),
     pool: tasks.filter((t) => active(t) && !t.promise && !t.wait && !t.holdDate && !t.doneDate),
     waiting: tasks.filter((t) => active(t) && t.wait && !t.doneDate),
     hold: tasks.filter((t) => active(t) && t.holdDate && !t.doneDate),
-    done: tasks.filter((t) => t.doneDate).sort((a, b) => b.doneDate.localeCompare(a.doneDate)),
+    done: tasks.filter((t) => t.doneDate && !t.deletedDate).sort((a, b) => b.doneDate.localeCompare(a.doneDate)),
+    trash: tasks.filter((t) => t.deletedDate).sort((a, b) => b.deletedDate.localeCompare(a.deletedDate)),
     weekStartS,
     weekEndS,
   }
