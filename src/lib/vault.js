@@ -589,6 +589,11 @@ export function createVaultStore(adapter, app = null) {
     async toggleTask(task) {
       await toggleTaskInFile(read, write, task, todayStr())
     },
+    // 双链点击:Obsidian 原生解析链接,新页签打开(工作台视图不被顶替)
+    openWikiLink(target) {
+      if (!app || !target) return
+      app.workspace.openLinkText(target, '', true)
+    },
     async addTask({ title, section, due, promise }) {
       await addTaskInFile(read, write, { title, section, due, promise }, todayStr())
     },

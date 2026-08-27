@@ -3,6 +3,7 @@
 <script>
   import { onMount } from 'svelte'
   import Heatmap from './Heatmap.svelte'
+  import WikiText from './WikiText.svelte'
   import { deriveViews } from './vault.js'
   import {
     Flame, CalendarDays, Inbox, Check, Sparkles, AlarmClock, Plus, X, Trash2,
@@ -190,6 +191,9 @@
     actionNote = ''
   }
 
+  // 双链点击:经 store 走 Obsidian 原生 openLinkText,新页签打开
+  const openWiki = (target) => store.openWikiLink?.(target)
+
   function daysSince(d) {
     return Math.floor((Date.parse(todayS) - Date.parse(d)) / 86400000)
   }
@@ -265,7 +269,7 @@
       <svg viewBox="0 0 12 12"><path d="M2 6.5 L5 9.2 L10 3" stroke="#000" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" /></svg>
     </button>
     <div class="flex-1 min-w-0">
-      <div class="text-[15px] font-medium leading-snug break-words {t.status === 'done' ? 'line-through text-slate' : ''}">{t.title}</div>
+      <div class="text-[15px] font-medium leading-snug break-words {t.status === 'done' ? 'line-through text-slate' : ''}"><WikiText text={t.title} onopen={openWiki} /></div>
       {#if t.created}
         <div class="text-[11.5px] text-slate mt-0.5">
           @c {t.created}{t.promise ? ` · @p ${t.promise.slice(5)}` : ''}{t.wait ? ` · @w ${t.wait.slice(5)}` : ''}
@@ -300,7 +304,7 @@
 {#snippet blockItems(items, depth, task)}
   {#each items as it}
     {#if it.type === 'text'}
-      <div class="text-[13px] text-charcoal leading-relaxed break-words py-0.5" style="padding-left:{depth * 18}px">{it.text}</div>
+      <div class="text-[13px] text-charcoal leading-relaxed break-words py-0.5" style="padding-left:{depth * 18}px"><WikiText text={it.text} onopen={openWiki} /></div>
     {:else}
       {@const subDone = it.mark === 'x' || it.mark === 'X'}
       <div class="flex gap-2 items-start py-1" style="padding-left:{depth * 18}px">
@@ -308,7 +312,7 @@
           onclick={(e) => { e.stopPropagation(); toggleSub(task, it) }} aria-label="子任务勾选">
           <svg viewBox="0 0 12 12"><path d="M2 6.5 L5 9.2 L10 3" stroke="#000" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" /></svg>
         </button>
-        <span class="flex-1 min-w-0 text-[13px] leading-snug break-words {subDone || it.mark === '-' ? 'line-through text-slate' : ''}">{it.title}</span>
+        <span class="flex-1 min-w-0 text-[13px] leading-snug break-words {subDone || it.mark === '-' ? 'line-through text-slate' : ''}"><WikiText text={it.title} onopen={openWiki} /></span>
       </div>
       {#if depth < 2 && it.children?.length}
         {@render blockItems(it.children, depth + 1, task)}
@@ -523,7 +527,7 @@
 
           <!-- 完整描述(md 上下文首次面板可见) -->
           {#if desc}
-            <div class="text-[13px] text-charcoal leading-relaxed break-words border-l-2 border-fog pl-3">{desc}</div>
+            <div class="text-[13px] text-charcoal leading-relaxed break-words border-l-2 border-fog pl-3"><WikiText text={desc} onopen={openWiki} /></div>
           {/if}
 
           <!-- fields 块渲染:续行 + 子任务(可勾写穿,3 层) -->
