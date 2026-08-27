@@ -98,7 +98,8 @@ export async function addTaskInFile(read, write, { title, section, due, promise 
     let last = -1
     for (let i = 0; i < lines.length; i++) {
       if (doneR && i > doneR.start && i < doneR.end) break
-      if (/^- \[[ xX\-]\]/.test(lines[i])) last = i
+      // 只记未完成（- [ ]）任务行:无 ✅区 形态下已完成/取消沉底,新任务不得插到沉底堆里
+      if (/^- \[ \]/.test(lines[i])) last = i
     }
     if (last >= 0) lines.splice(blockEnd(lines, last) + 1, 0, taskLine)
     else if (doneR) lines.splice(doneR.start, 0, taskLine, '')
