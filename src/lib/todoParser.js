@@ -43,6 +43,7 @@ export function parseTodos(md) {
       status: mark === 'x' || mark === 'X' ? 'done' : mark === '-' ? 'cancelled' : meta.h ? 'hold' : 'todo',
       title,
       body,
+      tags: tagsOf(body),
       created: meta.c || null,
       doneDate: meta.d || (mark === 'x' && oldDone ? `2026-${oldDone[1]}-${oldDone[2]}` : null),
       holdDate: meta.h || null,
@@ -57,6 +58,18 @@ const TASK_RE = /^- \[([ xX\-])\]\s*(.*)$/
 const SUB_RE = /^(\s+)- \[([ xX\-])\]\s*(.*)$/
 const INDENT_RE = /^(?: {2,}|\t)/
 const META_DATE_RE = /@(c|s|d|h|due|p|w|x)\((\d{4}-\d{2}-\d{2})\)/g
+
+// 标签:#tag 住父行自由文本(约定描述尾部),不是 @ 元数据,不参与视图派生,仅供渲染/筛选/统计
+// 遵循 Obsidian 规则:# 前必须是行首/空白(防误吃 [[page#heading]]),纯数字不算标签
+const TAG_RE = /(?:^|\s)#([\p{L}\p{N}_][\p{L}\p{N}_-]*)/gu
+function tagsOf(body) {
+  const out = []
+  for (const m of body.matchAll(TAG_RE)) {
+    if (/^\d+$/.test(m[1])) continue
+    if (!out.includes(m[1])) out.push(m[1])
+  }
+  return out
+}
 
 function sectionOf(heading) {
   if (heading.includes('今天')) return 'today'
@@ -88,6 +101,7 @@ function parseParentLine(line, idx, section) {
     status: mark === 'x' || mark === 'X' ? 'done' : mark === '-' ? 'cancelled' : meta.h ? 'hold' : 'todo',
     title: titleOf(body),
     body,
+    tags: tagsOf(body),
     created: meta.c || null,
     doneDate: meta.d || (mark === 'x' && oldDone ? `2026-${oldDone[1]}-${oldDone[2]}` : null),
     holdDate: meta.h || null,

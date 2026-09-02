@@ -32,6 +32,9 @@
   // 回收站折叠(fields)
   let trashOpen = $state(false)
 
+  // 标签筛选:null=全部;#tag 住父行自由文本,解析器提成 t.tags
+  let tagFilter = $state(null)
+
   // 热力图点击明细
   let selectedDate = $state(null)
 
@@ -237,16 +240,24 @@
 
   // fields 模式六视图派生;legacy 保持既有分区过滤
   let views = $derived(mode === 'fields' ? deriveViews(todos, todayS) : null)
-  let dayTasks = $derived(views ? views.today : todos.filter((t) => t.section === 'today'))
+  // 标签筛选:只作用于工作视图(今天/本周/池/等待/冻结+今日完成计数);
+  // 统计口径(热力图/周月完成/曝光榜)与回收站保持全局,不随筛选收窄
+  let allTags = $derived(
+    [...new Set(todos.flatMap((t) => t.tags || []))].sort((a, b) =>
+      a === '工作' ? -1 : b === '工作' ? 1 : a.localeCompare(b, 'zh'),
+    ),
+  )
+  const byTag = (list) => (tagFilter ? list.filter((t) => t.tags?.includes(tagFilter)) : list)
+  let dayTasks = $derived(views ? byTag(views.today) : byTag(todos.filter((t) => t.section === 'today')))
   let weekPlan = $derived(
-    views ? views.week : todos.filter((t) => t.section === 'week' && t.status !== 'done' && t.status !== 'cancelled'),
+    views ? byTag(views.week) : byTag(todos.filter((t) => t.section === 'week' && t.status !== 'done' && t.status !== 'cancelled')),
   )
   let weekDone = $derived(todos.filter((t) => t.doneDate && t.doneDate >= weekStartS))
   let poolTasks = $derived(
-    views ? views.pool : todos.filter((t) => t.section === 'pool' && t.status !== 'done' && t.status !== 'cancelled'),
+    views ? byTag(views.pool) : byTag(todos.filter((t) => t.section === 'pool' && t.status !== 'done' && t.status !== 'cancelled')),
   )
-  let waitTasks = $derived(views ? views.waiting : [])
-  let holdTasks = $derived(views ? views.hold : [])
+  let waitTasks = $derived(views ? byTag(views.waiting) : [])
+  let holdTasks = $derived(views ? byTag(views.hold) : [])
   let trashTasks = $derived(views ? views.trash : [])
   let monthDone = $derived(todos.filter((t) => t.doneDate && t.doneDate >= monthStartS))
   let rolling = $derived(
@@ -257,11 +268,16 @@
       .slice(0, 10),
   )
 
-  // fields 今天视图只含未完成的;完成数按 @d=今天 单算
-  let todayDoneCount = $derived(todos.filter((t) => t.doneDate === todayS).length)
+  // fields 今天视图只含未完成的;完成数按 @d=今天 单算(跟随标签筛选,与列表口径一致)
+  let todayDoneCount = $derived(byTag(todos.filter((t) => t.doneDate === todayS)).length)
   let doneCountToday = $derived(views ? todayDoneCount : dayTasks.filter((t) => t.status === 'done').length)
   let dayTotal = $derived(views ? dayTasks.length + todayDoneCount : dayTasks.length)
   let openTask = $derived(todos.find((t) => keyOf(t) === openKey) || null)
+
+  // 筛选的标签消失(任务删光/改标签)时自动回「全部」
+  $effect(() => {
+    if (tagFilter && !allTags.includes(tagFilter)) tagFilter = null
+  })
 </script>
 
 <!-- 任务行(各视图复用):勾选框 + 标题 + 徽章;点行开弹窗 -->
@@ -283,6 +299,10 @@
         <div class="text-[11.5px] text-slate mt-0.5">等待:{t.waiting}</div>
       {/if}
     </div>
+    <!-- 标签徽章:#tag 父行自由文本解析,工作=深紫(plum-ink)免闭环域标记,其余白底 -->
+    {#each t.tags || [] as tag}
+      <span class="self-start text-[11px] px-2 py-0.5 rounded-full border border-ink-black whitespace-nowrap {tag === '工作' ? 'bg-plum-ink text-pure-white' : 'bg-pure-white text-slate'}">#{tag}</span>
+    {/each}
     {#if t.status === 'hold'}
       <span class="self-start text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-sky-pop whitespace-nowrap">冻结</span>
     {:else if t.status === 'done'}
@@ -363,6 +383,17 @@
     {#if busy}<LoaderCircle size={15} class="animate-spin text-slate" />{/if}
     {#if tip}<span class="text-[11.5px] text-mint-dim flex items-center gap-1"><Check size={12} /> {tip}</span>{/if}
   </div>
+
+  <!-- 标签筛选行:有标签才出现;只收窄工作视图,统计口径不受影响 -->
+  {#if allTags.length}
+    <div class="flex gap-1.5 mb-3 items-center flex-wrap">
+      <button class="tab-btn tab-btn--sm" data-active={tagFilter === null} onclick={() => (tagFilter = null)}>全部</button>
+      {#each allTags as tag}
+        <button class="tab-btn tab-btn--sm" data-active={tagFilter === tag}
+          onclick={() => (tagFilter = tagFilter === tag ? null : tag)}>#{tag}</button>
+      {/each}
+    </div>
+  {/if}
 
   {#if error}
     <div class="card p-4 text-[13px] text-rise">读取失败:{error}</div>
@@ -542,6 +573,9 @@
               </div>
             </div>
             <div class="flex items-center gap-1.5 flex-none">
+              {#each t.tags || [] as tag}
+                <span class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black whitespace-nowrap {tag === '工作' ? 'bg-plum-ink text-pure-white' : 'bg-pure-white text-slate'}">#{tag}</span>
+              {/each}
               {#if t.status === 'hold'}
                 <span class="text-[11px] px-2 py-0.5 rounded-full border border-ink-black bg-sky-pop">冻结</span>
               {/if}
