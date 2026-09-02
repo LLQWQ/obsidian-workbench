@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/08-31-workbench-ui-rewrite/interaction-proposal.md", "reason": "交互重设计方案(评审稿):信息架构/视觉方向/各页设计/组件映射/保留变更舍弃清单——实现的目标形态以此为准"}
+{"file": ".trellis/tasks/08-31-workbench-ui-rewrite/design.md", "reason": "技术设计:库接入(link+alias拆引)、scoped CSS 方案、keep-alive 外壳、目录结构、模式适配层契约、z-index 约定"}
+{"file": ".trellis/tasks/08-31-workbench-ui-rewrite/research/animal-island-capability-map.md", "reason": "35 个组件的精确 props/slots/$bindable/事件与 file:line 锚点;使用组件前必须查此表,禁止凭印象写 API"}
+{"file": ".trellis/tasks/08-31-workbench-ui-rewrite/research/workbench-interaction-inventory.md", "reason": "现状功能全量清单与 7 条数据层硬约束;功能无损(R10)的对照源;vault.js/todoParser.js 冻结,只能按其 store API 表面消费"}

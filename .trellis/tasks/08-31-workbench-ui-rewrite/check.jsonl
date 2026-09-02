@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/08-31-workbench-ui-rewrite/prd.md", "reason": "验收标准 AC1-AC8 与 R1-R10 需求;检查按此逐项核对"}
+{"file": ".trellis/tasks/08-31-workbench-ui-rewrite/design.md", "reason": "验证命令(旧类 grep 为空、数据层 diff 为空、build)与宿主兼容性走查清单"}
+{"file": ".trellis/tasks/08-31-workbench-ui-rewrite/research/workbench-interaction-inventory.md", "reason": "功能无损对照:第 1-4 章功能清单 + 第 9 章约束,逐项确认行为等价"}
+{"file": ".trellis/tasks/08-31-workbench-ui-rewrite/interaction-proposal.md", "reason": "附录保留/变更/舍弃/新增清单;舍弃项(旧类/装饰/词标)须确认零残留"}
